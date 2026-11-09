@@ -209,6 +209,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3
 @media (max-width:700px){.lane{grid-template-columns:minmax(0,1fr);gap:6px}.steps{gap:6px}.grp{gap:2px}.step{height:40px}.step[data-n]::after{bottom:calc(4px + var(--n) * 30px)}}
 
 .foot{display:flex;flex-wrap:wrap;gap:8px 20px;font:500 10.5px/1.7 var(--f-mono);color:var(--ink-2);letter-spacing:.03em}
+.foot a{color:var(--ink);text-underline-offset:3px}
 kbd{font:600 10px var(--f-mono);padding:1px 5px;border-radius:4px;background:var(--unit);box-shadow:inset 0 0 0 1px var(--edge),0 1px 0 var(--edge);color:var(--ink)}
 .toast{position:fixed;left:50%;bottom:0;transform:translateX(-50%);margin-bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--unit);font:500 12px/1.4 var(--f-mono);padding:11px 15px;border-radius:10px;display:flex;gap:14px;align-items:center;max-width:calc(100vw - 32px);z-index:20;box-shadow:0 10px 30px -10px color-mix(in oklab,var(--ink) 60%,transparent)}
 .toast button{all:unset;cursor:pointer;font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
@@ -302,6 +303,7 @@ img{max-width:100%}
     <span>Tastatur: <kbd>1</kbd>–<kbd>4</kbd> · <kbd>Q</kbd>–<kbd>R</kbd> · <kbd>A</kbd>–<kbd>F</kbd> · <kbd>Y</kbd>–<kbd>V</kbd> spielen die Pads</span>
     <span><kbd>Leertaste</kbd> Start/Stopp · <kbd>B</kbd> Bank · <kbd>T</kbd> Tonleiter · <kbd>↑</kbd><kbd>↓</kbd> Tonhöhe · <kbd>Esc</kbd> Stille</span>
     <span>iPhone: Einmal „Ton einschalten“ antippen und die Lautstärke-Tasten hochdrehen.</span>
+    <span>Noch ein Instrument: <a href="quietschkiste/">Quietschkiste, die Big-Beat-Maschine →</a></span>
   </footer>
 </div>
 <div class="toast" id="toast" role="status" hidden><span></span><button type="button" hidden></button></div>

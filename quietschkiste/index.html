@@ -38,6 +38,8 @@ body{background:var(--case);color:var(--ink);font-family:var(--f-body);
 header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
 h1{font-family:var(--f-display);font-size:clamp(1.5rem,5vw,2.4rem);margin:0;letter-spacing:.02em;line-height:1}
 h1 span{color:var(--accent)}
+.back{display:inline-block;margin-bottom:8px;font-family:var(--f-mono);font-size:.75rem;color:var(--muted);text-underline-offset:3px}
+.back:hover{color:var(--ink)}
 h2{font-family:var(--f-display);font-size:1rem;margin:0;letter-spacing:.03em}
 .sub{margin:6px 0 0;color:var(--muted);font-size:.9rem;max-width:52ch}
 .scope{flex:1 1 260px;min-width:0;max-width:420px;height:76px;background:var(--screen);border-radius:10px;
@@ -100,6 +102,7 @@ kbd{font-family:var(--f-mono);font-size:.8em;border:1px solid var(--muted);borde
 <div class="wrap">
   <header>
     <div>
+      <a class="back" href="../">← Tierpad</a>
       <h1>Quietsch<span>kiste</span></h1>
       <p class="sub">Big-Beat-Maschine im 90er-Stil: schwere Breakbeats, verzerrter Bass, Rave-Stabs und Hoover. Beat starten, drüber spielen.</p>
     </div>

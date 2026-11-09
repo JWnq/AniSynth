@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Beschleunigung">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<title>Beschleunigungssensor live</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --wash: rgba(11,11,11,0.05);
+  --s1: #2a78d6;   /* X */
+  --s2: #eb6834;   /* Y */
+  --s3: #1baf7a;   /* Z */
+  --sm: #6250d6;   /* Betrag / Vektor */
+  --good: #0ca30c;
+  --warn: #fab219;
+  --crit: #d03b3b;
+  --btn: #0b0b0b;
+  --btn-ink: #fcfcfb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --wash: rgba(255,255,255,0.06);
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --sm: #9085e9;
+    --btn: #f0efec;
+    --btn-ink: #1a1a19;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+           max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 12px; }
+h1 { font-size: 22px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0; font-weight: 600; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 2px; }
+.status { margin: 2px 0 0; color: var(--ink2); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.status[data-s="live"] .dot { background: var(--good); }
+.status[data-s="paused"] .dot { background: var(--warn); }
+.status[data-s="rec"] .dot { background: var(--crit); }
+
+.btn {
+  appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  font: inherit; font-weight: 550; font-size: 14px; min-height: 40px; padding: 0 14px; border-radius: 10px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; white-space: nowrap;
+}
+.btn:active { background: var(--wash); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.primary { background: var(--btn); color: var(--btn-ink); border-color: transparent; min-width: 96px; min-height: 44px; font-size: 16px; }
+.btn[aria-pressed="true"] { background: var(--btn); color: var(--btn-ink); border-color: transparent; }
+.btn:focus-visible, .seg button:focus-visible, canvas:focus-visible, summary:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 12px 10px; min-width: 0; }
+.notice p { margin: 0 0 8px; color: var(--ink2); }
+.notice p:last-child { margin-bottom: 0; }
+.msg { color: var(--ink) !important; font-weight: 550; }
+.notice .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--wash); border-radius: 10px; padding: 2px; }
+.seg button {
+  appearance: none; border: 0; background: transparent; color: var(--ink2); font: inherit; font-size: 13px; font-weight: 550;
+  min-height: 36px; padding: 0 10px; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; white-space: nowrap;
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,0.08); }
+
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.tile.hero { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tile .label { font-size: 12px; color: var(--ink2); }
+.tile .value { font-size: 20px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .value small, .hero small { font-size: 13px; font-weight: 500; color: var(--ink2); margin-left: 3px; }
+.hero .value { font-size: 52px; line-height: 1; letter-spacing: -0.02em; margin: 0; }
+.hero .label { font-size: 13px; }
+@media (min-width: 720px) {
+  .tiles { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
+  .tile.hero { grid-column: auto; display: block; }
+  .hero .value { margin-top: 4px; }
+}
+
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.unit { font-size: 12px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink2); margin-bottom: 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 4.2em; display: inline-block; }
+.key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; background: var(--c); }
+
+.plot { position: relative; }
+.plot canvas { display: block; width: 100%; height: 210px; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.plot.short canvas { height: 150px; }
+.plot.vec canvas { height: 230px; }
+.tip {
+  position: absolute; top: 6px; left: 0; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  min-width: 108px; font-variant-numeric: tabular-nums;
+}
+.tip .th { color: var(--muted); margin-bottom: 2px; }
+.tip .tr { display: flex; align-items: center; gap: 6px; }
+.tip .tr b { font-weight: 650; }
+.tip .tr span { color: var(--ink2); }
+.note { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+
+.grid2 { display: grid; gap: 12px; }
+@media (min-width: 720px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 550; color: var(--ink2); font-size: 12px; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 550; }
+td:first-child span { display: inline-flex; align-items: center; gap: 6px; }
+.tablewrap { overflow-x: auto; }
+
+details summary { cursor: pointer; font-weight: 600; list-style-position: inside; }
+details p, details li { color: var(--ink2); font-size: 14px; }
+details ul { padding-left: 18px; margin: 6px 0; }
+footer { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Beschleunigung</h1>
+      <p class="status" id="status" data-s="idle" role="status"><span class="dot"></span><span id="statusText">Bereit</span></p>
+    </div>
+    <button id="startBtn" class="btn primary" type="button">Start</button>
+  </header>
+
+  <section id="intro" class="card notice">
+    <p id="introText">Tippe auf <b>Start</b> und erlaube den Zugriff auf <b>Bewegung &amp; Ausrichtung</b>. Danach siehst du die Messwerte deines iPhones live.</p>
+    <p id="msg" class="msg" hidden></p>
+    <div class="row"><button id="demoBtn" class="btn" type="button" hidden>Demo mit simulierten Daten</button></div>
+  </section>
+
+  <div class="controls" role="toolbar" aria-label="Einstellungen">
+    <div class="seg" data-key="mode" role="group" aria-label="Schwerkraft">
+      <button type="button" data-v="lin" aria-pressed="true">Ohne Schwerkraft</button>
+      <button type="button" data-v="grav" aria-pressed="false">Mit Schwerkraft</button>
+    </div>
+    <div class="seg" data-key="win" role="group" aria-label="Zeitfenster">
+      <button type="button" data-v="5" aria-pressed="false">5 s</button>
+      <button type="button" data-v="10" aria-pressed="true">10 s</button>
+      <button type="button" data-v="30" aria-pressed="false">30 s</button>
+    </div>
+    <div class="seg" data-key="unit" role="group" aria-label="Einheit">
+      <button type="button" data-v="ms2" aria-pressed="true">m/s²</button>
+      <button type="button" data-v="g" aria-pressed="false">g</button>
+    </div>
+    <div class="actions">
+      <button id="pauseBtn" class="btn" type="button" aria-pressed="false" disabled>Pause</button>
+      <button id="tareBtn" class="btn" type="button" aria-pressed="false" disabled>Nullen</button>
+      <button id="recBtn" class="btn" type="button" aria-pressed="false" disabled>Aufnahme</button>
+    </div>
+  </div>
+
+  <section class="tiles" aria-label="Kennzahlen">
+    <div class="tile hero"><div class="label">Betrag |a| jetzt</div><div class="value" id="vMag">–</div></div>
+    <div class="tile"><div class="label">Spitze im Fenster</div><div class="value" id="vPeak">–</div></div>
+    <div class="tile"><div class="label">Hauptfrequenz</div><div class="value" id="vFreq">–</div></div>
+    <div class="tile"><div class="label">Abtastrate</div><div class="value" id="vRate">–</div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Zeitverlauf X · Y · Z</h2><span class="unit" data-unit>m/s²</span></div>
+    <div class="legend">
+      <span><i class="key" style="--c:var(--s1)"></i>X <b id="lx">–</b></span>
+      <span><i class="key" style="--c:var(--s2)"></i>Y <b id="ly">–</b></span>
+      <span><i class="key" style="--c:var(--s3)"></i>Z <b id="lz">–</b></span>
+    </div>
+    <div class="plot"><canvas id="cXYZ" tabindex="0" role="img" aria-label="Liniendiagramm der Beschleunigung in X, Y und Z über die Zeit. Werte stehen auch in der Statistik-Tabelle."></canvas><div class="tip" hidden></div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Betrag |a|</h2><span class="unit" data-unit>m/s²</span></div>
+    <div class="plot short"><canvas id="cMag" tabindex="0" role="img" aria-label="Liniendiagramm des Betrags der Beschleunigung über die Zeit."></canvas><div class="tip" hidden></div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="card-head"><h2>Frequenzspektrum</h2><span class="unit">Amplitude, X+Y+Z</span></div>
+      <div class="plot short"><canvas id="cFFT" tabindex="0" role="img" aria-label="Frequenzspektrum aller drei Achsen der letzten Sekunden."></canvas><div class="tip" hidden></div></div>
+      <p class="note">Letzte ~4 s, alle Achsen zusammen. Zeigt, wie oft pro Sekunde sich eine Bewegung wiederholt – z. B. Gehen ≈ 2 Hz.</p>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Richtung</h2><span class="unit">X/Y-Ebene und Z</span></div>
+      <div class="plot vec"><canvas id="cVec" role="img" aria-label="Aktuelle Richtung der Beschleunigung in der X/Y-Ebene mit Spur, daneben Z als Balken."></canvas></div>
+      <p class="note">Der Punkt zeigt X und Y, die Spur die letzte Sekunde. Der Balken rechts zeigt Z.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>Statistik im Zeitfenster</h2><span class="unit" data-unit>m/s²</span></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th scope="col">Achse</th><th scope="col">Jetzt</th><th scope="col">Min</th><th scope="col">Max</th><th scope="col">Mittel</th><th scope="col">RMS</th></tr></thead>
+        <tbody id="statBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Hilfe: Achsen, Modi und Probleme</summary>
+    <ul>
+      <li><b>X</b> zeigt nach rechts, <b>Y</b> zur Oberkante des iPhones, <b>Z</b> aus dem Display heraus – egal wie der Bildschirm gedreht ist.</li>
+      <li><b>Ohne Schwerkraft</b>: nur deine Bewegung, in Ruhe liegt alles bei 0.</li>
+      <li><b>Mit Schwerkraft</b>: der Rohwert des Sensors, in Ruhe ist der Betrag ≈ 9,81 m/s² (1 g). Gut, um Neigung zu sehen.</li>
+      <li><b>Nullen</b> zieht den aktuellen Ruhewert ab. <b>Pause</b> friert die Diagramme ein – dann kannst du mit dem Finger über die Kurven fahren und Werte ablesen.</li>
+      <li><b>Aufnahme</b> speichert alle Messwerte; beim Stoppen kannst du sie als CSV-Datei teilen oder sichern (öffnet in Numbers oder Excel).</li>
+      <li>Hast du den Zugriff abgelehnt? Safari ganz schließen (App-Umschalter), wieder öffnen und erneut auf Start tippen.</li>
+      <li>Tipp: Über Teilen → <b>Zum Home-Bildschirm</b> wird die Seite wie eine App gestartet.</li>
+    </ul>
+  </details>
+
+  <footer>Alle Messwerte bleiben auf deinem Gerät – nichts wird hochgeladen.</footer>
+</main>
+
+<script>
+'use strict';
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const G = 9.80665;
+  const CAP = 4096;                 // Ringpuffer (~68 s bei 60 Hz)
+  const MAX_REC = 250000;           // ~70 min bei 60 Hz
+  const FFT_N = 256;
+
+  // ---------- Datenpuffer ----------
+  const buf = {
+    t: new Float64Array(CAP),
+    lx: new Float32Array(CAP), ly: new Float32Array(CAP), lz: new Float32Array(CAP),
+    gx: new Float32Array(CAP), gy: new Float32Array(CAP), gz: new Float32Array(CAP),
+    n: 0, head: 0,
+  };
+  const phys = (i) => (buf.head - buf.n + i + CAP) % CAP;
+  function pushSample(t, l, g) {
+    const p = buf.head;
+    buf.t[p] = t;
+    buf.lx[p] = l[0]; buf.ly[p] = l[1]; buf.lz[p] = l[2];
+    buf.gx[p] = g[0]; buf.gy[p] = g[1]; buf.gz[p] = g[2];
+    buf.head = (p + 1) % CAP;
+    if (buf.n < CAP) buf.n++;
+  }
+  function lowerBound(t0) {
+    let lo = 0, hi = buf.n;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (buf.t[phys(mid)] < t0) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+
+  // ---------- Zustand ----------
+  const S = {
+    running: false, demo: false, paused: false, gotData: false, noLin: false,
+    mode: 'lin', win: 10, unit: 'ms2',
+    offset: { lin: [0, 0, 0], grav: [0, 0, 0] }, tared: false,
+    rec: null, rate: 0, rateCount: 0, rateT0: 0,
+    dirty: true, textDirty: true, fftDirty: true, lastText: 0, lastFFT: 0,
+    spec: null, demoTimer: 0, wakeLock: null, checkTimer: 0,
+  };
+
+  // Für die aktuelle Ansicht aufbereitete Werte
+  const P = {
+    t: new Float64Array(CAP), x: new Float32Array(CAP), y: new Float32Array(CAP),
+    z: new Float32Array(CAP), m: new Float32Array(CAP), n: 0, tEnd: 0,
+  };
+  function prepare() {
+    P.n = 0;
+    const n = buf.n;
+    if (!n) return P;
+    const tEnd = buf.t[phys(n - 1)];
+    const i0 = Math.max(0, lowerBound(tEnd - S.win * 1000) - 1);
+    const off = S.offset[S.mode];
+    const k = S.unit === 'g' ? 1 / G : 1;
+    const lin = S.mode === 'lin';
+    const X = lin ? buf.lx : buf.gx, Y = lin ? buf.ly : buf.gy, Z = lin ? buf.lz : buf.gz;
+    let j = 0;
+    for (let i = i0; i < n; i++) {
+      const p = phys(i);
+      const x = (X[p] - off[0]) * k, y = (Y[p] - off[1]) * k, z = (Z[p] - off[2]) * k;
+      P.t[j] = buf.t[p]; P.x[j] = x; P.y[j] = y; P.z[j] = z;
+      P.m[j] = Math.sqrt(x * x + y * y + z * z);
+      j++;
+    }
+    P.n = j; P.tEnd = tEnd;
+    return P;
+  }
+
+  // ---------- Formatierung ----------
+  const nfCache = {};
+  function fmt(v, d) {
+    if (d === undefined) d = S.unit === 'g' ? 3 : 2;
+    if (!Number.isFinite(v)) return '–';
+    if (Math.abs(v) < 0.5 * Math.pow(10, -d)) v = 0;
+    const f = nfCache[d] || (nfCache[d] = new Intl.NumberFormat('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }));
+    return f.format(v).replace('-', '−');
+  }
+  const unitLabel = () => (S.unit === 'g' ? 'g' : 'm/s²');
+  function tickDecimals(step) {
+    let d = 0;
+    while (d < 4 && Math.abs(Math.round(step * Math.pow(10, d)) - step * Math.pow(10, d)) > 1e-6) d++;
+    return d;
+  }
+
+  // ---------- Farben ----------
+  let C = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = (n) => cs.getPropertyValue(n).trim();
+    C = { surface: g('--surface'), ink: g('--ink'), ink2: g('--ink2'), muted: g('--muted'), grid: g('--grid'),
+          axis: g('--axis'), s1: g('--s1'), s2: g('--s2'), s3: g('--s3'), sm: g('--sm') };
+    S.dirty = true;
+  }
+  function withAlpha(hex, a) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16), gg = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r},${gg},${b},${a})`;
+  }
+
+  // ---------- Canvas-Helfer ----------
+  function makeChart(id) {
+    const cv = $(id);
+    const c = { cv, ctx: cv.getContext('2d'), w: 1, h: 1, dpr: 1, range: null, shrinkAt: 0, cx: null,
+                tip: cv.parentElement.querySelector('.tip'), tipRows: null };
+    const resize = () => {
+      const r = cv.getBoundingClientRect();
+      c.dpr = Math.min(window.devicePixelRatio || 1, 3);
+      c.w = Math.max(1, r.width); c.h = Math.max(1, r.height);
+      cv.width = Math.round(c.w * c.dpr); cv.height = Math.round(c.h * c.dpr);
+      S.dirty = true;
+    };
+    new ResizeObserver(resize).observe(cv);
+    resize();
+    return c;
+  }
+  function bindCursor(c) {
+    const cv = c.cv;
+    const set = (e) => { const r = cv.getBoundingClientRect(); c.cx = e.clientX - r.left; S.dirty = true; };
+    const clear = () => { c.cx = null; if (c.tip) c.tip.hidden = true; S.dirty = true; };
+    cv.addEventListener('pointerdown', set);
+    cv.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) set(e); });
+    cv.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') clear(); });
+    cv.addEventListener('pointercancel', clear);
+    cv.addEventListener('pointerleave', clear);
+    cv.addEventListener('focus', () => { c.cx = c.w - 12; S.dirty = true; });
+    cv.addEventListener('blur', clear);
+    cv.addEventListener('keydown', (e) => {
+      if (c.cx == null) return;
+      if (e.key === 'ArrowLeft') { c.cx = Math.max(0, c.cx - 8); S.dirty = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { c.cx = Math.min(c.w, c.cx + 8); S.dirty = true; e.preventDefault(); }
+    });
+  }
+  // Kleinster „runder“ Achsenbereich mit 2–4 Teilstrichen über null
+  function niceRange(v) {
+    let best = null;
+    const e0 = Math.floor(Math.log10(v / 4));
+    for (let e = e0 - 1; e <= e0 + 2; e++) {
+      for (const m of [1, 2, 2.5, 5]) {
+        const step = m * Math.pow(10, e);
+        const k = Math.ceil(v / step - 1e-9);
+        if (k < 2 || k > 4) continue;
+        const max = step * k;
+        if (!best || max < best.max - 1e-12 || (Math.abs(max - best.max) < 1e-12 && step > best.step)) best = { step, max };
+      }
+    }
+    return best || { step: v / 2, max: v };
+  }
+  // Achsenbereich, der sofort wächst, aber erst nach 1,5 s schrumpft (kein Flackern)
+  function stableRange(c, need, minR) {
+    const target = niceRange(Math.max(need, minR));
+    const now = performance.now();
+    if (!c.range || target.max > c.range.max + 1e-12) { c.range = target; c.shrinkAt = 0; }
+    else if (target.max < c.range.max - 1e-12) {
+      if (!c.shrinkAt) c.shrinkAt = now + 1500;
+      else if (now >= c.shrinkAt) { c.range = target; c.shrinkAt = 0; }
+      S.dirty = true;
+    } else c.shrinkAt = 0;
+    return c.range;
+  }
+  const PAD = { L: 44, R: 12, T: 10, B: 22 };
+  function drawYAxis(ctx, w, yMin, yMax, step, Y) {
+    const d = tickDecimals(step);
+    ctx.font = '11px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+    const n = Math.round((yMax - yMin) / step);
+    for (let i = 0; i <= n; i++) {
+      const v = yMin + i * step;
+      const y = Math.round(Y(v)) + 0.5;
+      ctx.strokeStyle = Math.abs(v) < step * 1e-6 ? C.axis : C.grid;
+      ctx.beginPath(); ctx.moveTo(PAD.L, y); ctx.lineTo(w - PAD.R, y); ctx.stroke();
+      ctx.fillStyle = C.muted;
+      ctx.fillText(fmt(v, d), PAD.L - 6, y);
+    }
+  }
+  function dot(ctx, x, y, color) {
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fillStyle = C.surface; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+  }
+  function emptyText(c, text) {
+    const { ctx, w, h } = c;
+    ctx.fillStyle = C.muted; ctx.font = '13px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, PAD.L + (w - PAD.L - PAD.R) / 2, PAD.T + (h - PAD.T - PAD.B) / 2);
+  }
+  function lowerBoundArr(arr, n, v) {
+    let lo = 0, hi = n;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < v) lo = mid + 1; else hi = mid; }
+    return lo;
+  }
+  // Tooltip mit festen Zeilen; Werte zuerst, Bezeichnung danach (textContent, kein innerHTML)
+  function showTip(c, x, head, rows) {
+    const tip = c.tip;
+    if (!c.tipRows || c.tipRows.length !== rows.length) {
+      tip.textContent = '';
+      const th = document.createElement('div'); th.className = 'th'; tip.appendChild(th);
+      c.tipHead = th; c.tipRows = [];
+      for (const r of rows) {
+        const tr = document.createElement('div'); tr.className = 'tr';
+        const k = document.createElement('i'); k.className = 'key'; k.style.setProperty('--c', r.color);
+        const b = document.createElement('b'); const s = document.createElement('span');
+        tr.append(k, b, s); tip.appendChild(tr);
+        c.tipRows.push({ k, b, s });
+      }
+    }
+    c.tipHead.textContent = head;
+    rows.forEach((r, i) => {
+      const el = c.tipRows[i];
+      el.k.style.setProperty('--c', r.color);
+      el.b.textContent = r.value; el.s.textContent = r.label;
+    });
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    let left = x + 14;
+    if (left + tw > c.w) left = x - 14 - tw;
+    tip.style.left = Math.max(0, left) + 'px';
+  }
+
+  // ---------- Zeitdiagramme ----------
+  function drawTime(c, series, opt) {
+    const { ctx, w, h, dpr } = c;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const pw = w - PAD.L - PAD.R, ph = h - PAD.T - PAD.B;
+    if (pw < 20 || ph < 20) return;
+    const n = P.n;
+    const minR = S.unit === 'g' ? (opt.sym ? 0.05 : 0.1) : (opt.sym ? 0.5 : 1);
+    let need = 0;
+    for (const s of series) {
+      const a = s.arr;
+      for (let i = 0; i < n; i++) { const v = opt.sym ? Math.abs(a[i]) : a[i]; if (v > need) need = v; }
+    }
+    const r = stableRange(c, need * 1.08, minR);
+    const yMin = opt.sym ? -r.max : 0, yMax = r.max;
+    const Y = (v) => PAD.T + (yMax - v) / (yMax - yMin) * ph;
+    const win = S.win * 1000, tEnd = P.tEnd;
+    const X = (t) => PAD.L + (1 - (tEnd - t) / win) * pw;
+
+    drawYAxis(ctx, w, yMin, yMax, r.step, Y);
+    // Zeitachse
+    const xs = S.win <= 5 ? 1 : S.win <= 10 ? 2 : 5;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = C.muted;
+    for (let s = 0; s <= S.win; s += xs) {
+      const x = PAD.L + (1 - s / S.win) * pw;
+      ctx.textAlign = s === 0 ? 'right' : s === S.win ? 'left' : 'center';
+      ctx.fillText(s === 0 ? 'jetzt' : `−${s} s`, s === 0 ? x + PAD.R - 2 : x, h - PAD.B + 6);
+    }
+    if (!n) { emptyText(c, S.running ? 'Warte auf Sensordaten …' : 'Noch keine Daten – tippe auf Start'); return; }
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(PAD.L, PAD.T - 3, pw, ph + 6); ctx.clip();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const s of series) {
+      const a = s.arr;
+      if (opt.area) {
+        ctx.beginPath(); let open = false, xFirst = 0, xLast = 0;
+        for (let i = 0; i < n; i++) {
+          const v = a[i]; if (!Number.isFinite(v)) continue;
+          const x = X(P.t[i]), y = Y(v);
+          if (!open) { ctx.moveTo(x, Y(0)); ctx.lineTo(x, y); xFirst = x; open = true; } else ctx.lineTo(x, y);
+          xLast = x;
+        }
+        if (open) { ctx.lineTo(xLast, Y(0)); ctx.lineTo(xFirst, Y(0)); ctx.closePath(); ctx.fillStyle = withAlpha(s.color, 0.1); ctx.fill(); }
+      }
+      ctx.beginPath(); let pen = false;
+      for (let i = 0; i < n; i++) {
+        const v = a[i];
+        if (!Number.isFinite(v)) { pen = false; continue; }
+        const x = X(P.t[i]), y = Y(v);
+        if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+      }
+      ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+    // Endpunkte
+    for (const s of series) {
+      const v = s.arr[n - 1];
+      if (Number.isFinite(v)) dot(ctx, X(P.t[n - 1]), Y(v), s.color);
+    }
+    // Fadenkreuz
+    if (c.cx != null) {
+      const cx = Math.min(Math.max(c.cx, PAD.L), PAD.L + pw);
+      const tC = tEnd - (1 - (cx - PAD.L) / pw) * win;
+      let i = lowerBoundArr(P.t, n, tC);
+      if (i >= n) i = n - 1;
+      if (i > 0 && Math.abs(P.t[i - 1] - tC) < Math.abs(P.t[i] - tC)) i--;
+      const x = Math.round(X(P.t[i])) + 0.5;
+      ctx.strokeStyle = C.ink2; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, PAD.T); ctx.lineTo(x, PAD.T + ph); ctx.stroke();
+      for (const s of series) { const v = s.arr[i]; if (Number.isFinite(v)) dot(ctx, x, Y(v), s.color); }
+      const ago = (tEnd - P.t[i]) / 1000;
+      showTip(c, x, ago < 0.005 ? 'jetzt' : `vor ${fmt(ago, 2)} s`,
+        series.map((s) => ({ color: s.color, value: `${fmt(s.arr[i])} ${unitLabel()}`, label: s.name })));
+    } else if (c.tip) c.tip.hidden = true;
+  }
+
+  // ---------- Spektrum ----------
+  function fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let k = 0; k < half; k++) {
+          const a = i + k, b = a + half;
+          const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+        }
+      }
+    }
+  }
+  // Spektrum aller drei Achsen zusammen (Leistung addiert). Aus dem Betrag |a| würde
+  // eine Schwingung um 0 gleichgerichtet und mit doppelter Frequenz erscheinen.
+  function computeSpectrum() {
+    const n = P.n;
+    let N = FFT_N;
+    while (N > 32 && n < N) N >>= 1;
+    if (n < N || n < 32) { S.spec = null; return; }
+    const i0 = n - N;
+    const dt = (P.t[n - 1] - P.t[i0]) / (N - 1);
+    if (!(dt > 0)) { S.spec = null; return; }
+    const fs = 1000 / dt;
+    const half = N >> 1;
+    const pow = new Float64Array(half + 1);
+    const re = new Float64Array(N), im = new Float64Array(N);
+    let used = 0;
+    for (const arr of [P.x, P.y, P.z]) {
+      let mean = 0, cnt = 0;
+      for (let i = 0; i < N; i++) { const v = arr[i0 + i]; if (Number.isFinite(v)) { mean += v; cnt++; } }
+      if (!cnt) continue;
+      used++;
+      mean /= cnt;
+      for (let i = 0; i < N; i++) {
+        const v = arr[i0 + i];
+        const wnd = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+        re[i] = (Number.isFinite(v) ? v - mean : 0) * wnd; im[i] = 0;
+      }
+      fft(re, im);
+      for (let k = 0; k <= half; k++) { const a = 4 * Math.hypot(re[k], im[k]) / N; pow[k] += a * a; }
+    }
+    if (!used) { S.spec = null; return; }
+    const amp = new Float64Array(half + 1), freq = new Float64Array(half + 1);
+    for (let k = 0; k <= half; k++) { amp[k] = Math.sqrt(pow[k]); freq[k] = k * fs / N; }
+    amp[0] = 0;
+    // Langsames Driften (< 0,5 Hz) zählt nicht als Hauptfrequenz
+    const kMin = Math.max(1, Math.ceil(0.5 * N / fs));
+    let kMax = kMin;
+    for (let k = kMin + 1; k < half; k++) if (amp[k] > amp[kMax]) kMax = k;
+    let fPeak = freq[kMax];
+    if (kMax > 0 && kMax < half) {
+      const a = amp[kMax - 1], b = amp[kMax], c = amp[kMax + 1];
+      const den = a - 2 * b + c;
+      if (den !== 0) fPeak = (kMax + 0.5 * (a - c) / den) * fs / N;
+    }
+    const thresh = S.unit === 'g' ? 0.004 : 0.04;
+    S.spec = { amp, freq, fs, N, kMax, fPeak, aPeak: amp[kMax], valid: amp[kMax] >= thresh };
+  }
+  function drawSpectrum(c) {
+    const { ctx, w, h, dpr } = c;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const pw = w - PAD.L - PAD.R, ph = h - PAD.T - PAD.B;
+    if (pw < 20 || ph < 20) return;
+    const sp = S.spec;
+    const fMax = sp ? sp.fs / 2 : 30;
+    let need = 0;
+    if (sp) for (let k = 1; k < sp.amp.length; k++) if (sp.amp[k] > need) need = sp.amp[k];
+    const r = stableRange(c, need * 1.15, S.unit === 'g' ? 0.01 : 0.1);
+    const Y = (v) => PAD.T + (r.max - v) / r.max * ph;
+    const X = (f) => PAD.L + f / fMax * pw;
+    drawYAxis(ctx, w, 0, r.max, r.step, Y);
+    ctx.textBaseline = 'top'; ctx.fillStyle = C.muted;
+    const fs = fMax > 40 ? 10 : 5;
+    for (let f = 0; f <= fMax + 1e-9; f += fs) {
+      ctx.textAlign = f === 0 ? 'left' : 'center';
+      if (X(f) > w - PAD.R - 14) continue;
+      ctx.fillText(f === 0 ? '0' : `${f}`, X(f), h - PAD.B + 6);
+    }
+    ctx.textAlign = 'right'; ctx.fillText('Hz', w - 2, h - PAD.B + 6);
+    if (!sp) { emptyText(c, S.running ? 'Sammle Daten …' : 'Noch keine Daten'); if (c.tip) c.tip.hidden = true; return; }
+    const K = sp.amp.length;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(PAD.L, PAD.T - 3, pw, ph + 6); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(X(sp.freq[0]), Y(0));
+    for (let k = 0; k < K; k++) ctx.lineTo(X(sp.freq[k]), Y(sp.amp[k]));
+    ctx.lineTo(X(sp.freq[K - 1]), Y(0)); ctx.closePath();
+    ctx.fillStyle = withAlpha(C.sm, 0.1); ctx.fill();
+    ctx.beginPath();
+    for (let k = 0; k < K; k++) { const x = X(sp.freq[k]), y = Y(sp.amp[k]); if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    ctx.strokeStyle = C.sm; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+    if (sp.valid) {
+      const x = X(sp.freq[sp.kMax]), y = Y(sp.aPeak);
+      dot(ctx, x, y, C.sm);
+      const label = `${fmt(sp.fPeak, 1)} Hz`;
+      ctx.font = '600 12px system-ui, -apple-system, sans-serif'; ctx.fillStyle = C.ink; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(label).width;
+      const right = x + 10 + tw < w - PAD.R;
+      ctx.textAlign = right ? 'left' : 'right';
+      ctx.fillText(label, right ? x + 10 : x - 10, Math.max(PAD.T + 8, y));
+    }
+    if (c.cx != null) {
+      const f = Math.min(Math.max((c.cx - PAD.L) / pw, 0), 1) * fMax;
+      const k = Math.min(K - 1, Math.max(0, Math.round(f * sp.N / sp.fs)));
+      const x = Math.round(X(sp.freq[k])) + 0.5;
+      ctx.strokeStyle = C.ink2; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, PAD.T); ctx.lineTo(x, PAD.T + ph); ctx.stroke();
+      dot(ctx, x, Y(sp.amp[k]), C.sm);
+      showTip(c, x, `${fmt(sp.freq[k], 2)} Hz`, [{ color: C.sm, value: `${fmt(sp.amp[k])} ${unitLabel()}`, label: 'Amplitude' }]);
+    } else if (c.tip) c.tip.hidden = true;
+  }
+
+  // ---------- Richtungsdiagramm ----------
+  function drawVector(c) {
+    const { ctx, w, h, dpr } = c;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const barW = 14, gap = 34;
+    const size = Math.max(40, Math.min(h - 40, w - barW - gap - 30));
+    const cx = (w - barW - gap) / 2, cy = 18 + size / 2;
+    const R = size / 2;
+    const range = (charts.xyz.range && charts.xyz.range.max) || (S.unit === 'g' ? 0.05 : 0.5);
+    const sc = R / range;
+    // Ringe und Achsen
+    ctx.lineWidth = 1; ctx.strokeStyle = C.grid;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R / 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = C.axis;
+    ctx.beginPath(); ctx.moveTo(Math.round(cx - R) , Math.round(cy) + 0.5); ctx.lineTo(Math.round(cx + R), Math.round(cy) + 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(Math.round(cx) + 0.5, Math.round(cy - R)); ctx.lineTo(Math.round(cx) + 0.5, Math.round(cy + R)); ctx.stroke();
+    ctx.font = '11px system-ui, -apple-system, sans-serif'; ctx.fillStyle = C.muted;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('+X', cx + R + 4, cy);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('+Y', cx, cy - R - 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(`${fmt(range, tickDecimals(range))} ${unitLabel()}`, cx + R * 0.71 + 2, cy + R * 0.71 - 4);
+    // Z-Balken (Null in der Mitte, rundes Datenende, gerades Ende an der Null)
+    const bx = w - barW - 18, top = cy - R, bot = cy + R;
+    ctx.strokeStyle = C.grid;
+    ctx.beginPath(); ctx.moveTo(bx + barW / 2 + 0.5, top); ctx.lineTo(bx + barW / 2 + 0.5, bot); ctx.stroke();
+    ctx.strokeStyle = C.axis;
+    ctx.beginPath(); ctx.moveTo(bx - 4, Math.round(cy) + 0.5); ctx.lineTo(bx + barW + 4, Math.round(cy) + 0.5); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('Z', bx + barW / 2, bot + 4);
+    const n = P.n;
+    if (!n) return;
+    const zv = P.z[n - 1];
+    if (Number.isFinite(zv)) {
+      const len = Math.max(-R, Math.min(R, zv * sc));
+      if (Math.abs(len) >= 1) {
+        const y0 = cy, y1 = cy - len, rr = Math.min(4, Math.abs(len));
+        ctx.beginPath();
+        if (len > 0) { ctx.moveTo(bx, y0); ctx.lineTo(bx, y1 + rr); ctx.arcTo(bx, y1, bx + rr, y1, rr); ctx.lineTo(bx + barW - rr, y1); ctx.arcTo(bx + barW, y1, bx + barW, y1 + rr, rr); ctx.lineTo(bx + barW, y0); }
+        else { ctx.moveTo(bx, y0); ctx.lineTo(bx, y1 - rr); ctx.arcTo(bx, y1, bx + rr, y1, rr); ctx.lineTo(bx + barW - rr, y1); ctx.arcTo(bx + barW, y1, bx + barW, y1 - rr, rr); ctx.lineTo(bx + barW, y0); }
+        ctx.closePath(); ctx.fillStyle = C.s3; ctx.fill();
+      }
+    }
+    // Spur der letzten Sekunde
+    const tCut = P.tEnd - 1000;
+    let i0 = lowerBoundArr(P.t, n, tCut);
+    const clampPt = (x, y) => { const d = Math.hypot(x, y); return d > R ? [x * R / d, y * R / d] : [x, y]; };
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = C.sm;
+    for (let i = Math.max(i0, 1); i < n; i++) {
+      const xa = P.x[i - 1], ya = P.y[i - 1], xb = P.x[i], yb = P.y[i];
+      if (![xa, ya, xb, yb].every(Number.isFinite)) continue;
+      const [ax, ay] = clampPt(xa * sc, ya * sc), [bxp, byp] = clampPt(xb * sc, yb * sc);
+      ctx.globalAlpha = 0.05 + 0.55 * (P.t[i] - tCut) / 1000;
+      ctx.beginPath(); ctx.moveTo(cx + ax, cy - ay); ctx.lineTo(cx + bxp, cy - byp); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    const xl = P.x[n - 1], yl = P.y[n - 1];
+    if (Number.isFinite(xl) && Number.isFinite(yl)) {
+      const [px, py] = clampPt(xl * sc, yl * sc);
+      ctx.beginPath(); ctx.arc(cx + px, cy - py, 8, 0, Math.PI * 2); ctx.fillStyle = C.surface; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + px, cy - py, 6, 0, Math.PI * 2); ctx.fillStyle = C.sm; ctx.fill();
+    }
+  }
+
+  // ---------- Texte, Kacheln, Tabelle ----------
+  const statRows = [];
+  function buildTable() {
+    const body = $('statBody');
+    const defs = [['X', '--s1'], ['Y', '--s2'], ['Z', '--s3'], ['|a|', '--sm']];
+    for (const [name, col] of defs) {
+      const tr = document.createElement('tr');
+      const th = document.createElement('td');
+      const sp = document.createElement('span');
+      const k = document.createElement('i'); k.className = 'key'; k.style.setProperty('--c', `var(${col})`);
+      sp.append(k, document.createTextNode(name));
+      th.appendChild(sp);
+      tr.appendChild(th);
+      const cells = [];
+      for (let i = 0; i < 5; i++) { const td = document.createElement('td'); td.textContent = '–'; tr.appendChild(td); cells.push(td); }
+      body.appendChild(tr);
+      statRows.push(cells);
+    }
+  }
+  function stats(a, n) {
+    let mn = Infinity, mx = -Infinity, sum = 0, sq = 0, c = 0;
+    for (let i = 0; i < n; i++) {
+      const v = a[i]; if (!Number.isFinite(v)) continue;
+      if (v < mn) mn = v; if (v > mx) mx = v; sum += v; sq += v * v; c++;
+    }
+    if (!c) return [NaN, NaN, NaN, NaN, NaN];
+    return [a[n - 1], mn, mx, sum / c, Math.sqrt(sq / c)];
+  }
+  function setValue(el, num, unit) {
+    el.textContent = num;
+    if (unit) { const s = document.createElement('small'); s.textContent = unit; el.appendChild(s); }
+  }
+  function updateText() {
+    const n = P.n, u = unitLabel();
+    $('lx').textContent = n ? fmt(P.x[n - 1]) : '–';
+    $('ly').textContent = n ? fmt(P.y[n - 1]) : '–';
+    $('lz').textContent = n ? fmt(P.z[n - 1]) : '–';
+    const arrs = [P.x, P.y, P.z, P.m];
+    arrs.forEach((a, r) => {
+      const st = n ? stats(a, n) : [NaN, NaN, NaN, NaN, NaN];
+      st.forEach((v, i) => { statRows[r][i].textContent = fmt(v); });
+    });
+    const ms = n ? stats(P.m, n) : null;
+    setValue($('vMag'), n ? fmt(P.m[n - 1]) : '–', n ? u : '');
+    setValue($('vPeak'), ms ? fmt(ms[2]) : '–', ms ? u : '');
+    const sp = S.spec;
+    setValue($('vFreq'), sp && sp.valid ? fmt(sp.fPeak, 1) : '–', sp && sp.valid ? 'Hz' : '');
+    setValue($('vRate'), S.rate ? fmt(S.rate, 0) : '–', S.rate ? 'Hz' : '');
+    if (S.rec) {
+      const sec = Math.floor((performance.now() - S.rec.t0) / 1000);
+      $('recBtn').textContent = `Stopp ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}${S.rec.rows.length >= MAX_REC ? ' (voll)' : ''}`;
+    }
+  }
+  function setStatus() {
+    const el = $('status');
+    let s = 'idle', t = 'Bereit';
+    if (S.running) { s = 'live'; t = S.demo ? 'Live (Demo)' : 'Live'; }
+    if (S.running && S.paused) { s = 'paused'; t = 'Pausiert'; }
+    if (S.rec) { s = 'rec'; t = S.paused ? 'Aufnahme · Anzeige pausiert' : 'Aufnahme läuft'; }
+    el.dataset.s = s; $('statusText').textContent = t;
+  }
+
+  // ---------- Hauptschleife ----------
+  let charts = {};
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (S.dirty) {
+      S.dirty = false;
+      prepare();
+      const ser = [
+        { name: 'X', arr: P.x, color: C.s1 },
+        { name: 'Y', arr: P.y, color: C.s2 },
+        { name: 'Z', arr: P.z, color: C.s3 },
+      ];
+      drawTime(charts.xyz, ser, { sym: true });
+      drawTime(charts.mag, [{ name: '|a|', arr: P.m, color: C.sm }], { sym: false, area: true });
+      drawVector(charts.vec);
+      drawSpectrum(charts.fft);
+      S.textDirty = true; S.fftDirty = true;
+    }
+    if (S.fftDirty && now - S.lastFFT > 200) {
+      S.fftDirty = false; S.lastFFT = now;
+      computeSpectrum(); drawSpectrum(charts.fft);
+    }
+    if (S.textDirty && now - S.lastText > 120) {
+      S.textDirty = false; S.lastText = now;
+      updateText();
+    }
+  }
+
+  // ---------- Sensor ----------
+  function ingest(t, l, g) {
+    if (!S.gotData) {
+      S.gotData = true;
+      $('msg').hidden = true; $('demoBtn').hidden = true;
+      $('intro').hidden = true;
+      enableControls(true);
+    }
+    S.rateCount++;
+    if (!S.rateT0) S.rateT0 = t;
+    if (t - S.rateT0 >= 1000) { S.rate = S.rateCount * 1000 / (t - S.rateT0); S.rateCount = 0; S.rateT0 = t; S.textDirty = true; }
+    if (S.rec && S.rec.rows.length < MAX_REC) S.rec.rows.push([t - S.rec.t0, l[0], l[1], l[2], g[0], g[1], g[2]]);
+    if (!S.paused) { pushSample(t, l, g); S.dirty = true; }
+    else S.textDirty = true;
+  }
+  function onMotion(e) {
+    const a = e.acceleration, g = e.accelerationIncludingGravity;
+    const num = (v) => (v === null || v === undefined ? NaN : +v);
+    const l = a ? [num(a.x), num(a.y), num(a.z)] : [NaN, NaN, NaN];
+    const gg = g ? [num(g.x), num(g.y), num(g.z)] : [NaN, NaN, NaN];
+    if (!Number.isFinite(l[0]) && !Number.isFinite(gg[0])) return;
+    if (!Number.isFinite(l[0]) && !S.noLin) {
+      S.noLin = true;
+      if (S.mode === 'lin') { showMsg('Dein Gerät liefert keine Werte ohne Schwerkraft. Ich schalte auf „Mit Schwerkraft“.'); setMode('grav'); }
+    }
+    ingest(performance.now(), l, gg);
+  }
+  function showMsg(text) {
+    $('intro').hidden = false;
+    const m = $('msg'); m.textContent = text; m.hidden = false;
+  }
+  function enableControls(on) {
+    ['pauseBtn', 'tareBtn', 'recBtn'].forEach((id) => { $(id).disabled = !on; });
+  }
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator && document.visibilityState === 'visible') S.wakeLock = await navigator.wakeLock.request('screen'); }
+    catch (_) { /* nicht unterstützt – egal */ }
+  }
+  function releaseWake() { try { if (S.wakeLock) S.wakeLock.release(); } catch (_) {} S.wakeLock = null; }
+
+  function start() {
+    $('msg').hidden = true;
+    if (!window.isSecureContext) {
+      showMsg('Der Sensor funktioniert nur, wenn die Seite über https:// geöffnet wird (z. B. über GitHub Pages).');
+      $('demoBtn').hidden = false;
+      return;
+    }
+    if (typeof DeviceMotionEvent === 'undefined') {
+      showMsg('Dieser Browser hat keinen Zugriff auf einen Bewegungssensor. Öffne die Seite auf dem iPhone in Safari.');
+      $('demoBtn').hidden = false;
+      return;
+    }
+    const begin = () => {
+      window.addEventListener('devicemotion', onMotion);
+      S.running = true; S.demo = false; S.gotData = false;
+      afterStart();
+      clearTimeout(S.checkTimer);
+      S.checkTimer = setTimeout(() => {
+        if (S.running && !S.demo && !S.gotData) {
+          showMsg('Es kommen keine Sensordaten an. Auf einem Computer gibt es meist keinen Beschleunigungssensor – öffne die Seite auf dem iPhone, oder probiere die Demo.');
+          $('demoBtn').hidden = false;
+        }
+      }, 1500);
+    };
+    // Muss direkt im Tipp-Ereignis aufgerufen werden (iOS-Vorgabe)
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then((res) => {
+        if (res === 'granted') begin();
+        else showMsg('Zugriff abgelehnt. Schließe Safari ganz (App-Umschalter), öffne die Seite neu und tippe auf „Erlauben“.');
+      }).catch((err) => {
+        showMsg('Berechtigung konnte nicht angefragt werden: ' + (err && err.message ? err.message : err));
+      });
+    } else begin();
+  }
+  function afterStart() {
+    $('startBtn').textContent = 'Stopp';
+    keepAwake();
+    setStatus(); S.dirty = true;
+  }
+  function stop() {
+    window.removeEventListener('devicemotion', onMotion);
+    clearInterval(S.demoTimer); S.demoTimer = 0;
+    clearTimeout(S.checkTimer);
+    if (S.rec) finishRecording();
+    S.running = false; S.demo = false; S.paused = false; S.rate = 0;
+    $('pauseBtn').textContent = 'Pause'; $('pauseBtn').setAttribute('aria-pressed', 'false');
+    $('startBtn').textContent = 'Start';
+    enableControls(false);
+    releaseWake();
+    setStatus(); S.dirty = true;
+  }
+  function startDemo() {
+    window.removeEventListener('devicemotion', onMotion);
+    clearTimeout(S.checkTimer);
+    S.running = true; S.demo = true; S.noLin = false; S.gotData = false;
+    $('msg').hidden = true; $('demoBtn').hidden = true;
+    const t0 = performance.now();
+    let walk = 0;
+    clearInterval(S.demoTimer);
+    S.demoTimer = setInterval(() => {
+      const now = performance.now(), s = (now - t0) / 1000;
+      const nz = () => (Math.random() - 0.5) * 0.08;
+      walk = 0.5 + 0.5 * Math.sin(2 * Math.PI * s / 12);              // Wechsel zwischen ruhig und Gehen
+      const step = Math.sin(2 * Math.PI * 1.9 * s);
+      const l = [0.9 * walk * Math.sin(2 * Math.PI * 0.95 * s) + nz(),
+                 2.2 * walk * step + 0.6 * walk * Math.sin(2 * Math.PI * 3.8 * s) + nz(),
+                 1.2 * walk * Math.sin(2 * Math.PI * 1.9 * s + 1.1) + nz()];
+      const tilt = 0.35 * Math.sin(2 * Math.PI * s / 9);
+      const grav = [G * Math.sin(tilt) * 0.4, -G * Math.cos(tilt), -G * Math.sin(tilt) * 0.9];
+      ingest(now, l, [l[0] + grav[0], l[1] + grav[1], l[2] + grav[2]]);
+    }, 1000 / 60);
+    afterStart();
+  }
+
+  // ---------- Bedienelemente ----------
+  function setSeg(key, v) {
+    document.querySelectorAll(`.seg[data-key="${key}"] button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  }
+  function resetRanges() { Object.values(charts).forEach((c) => { c.range = null; c.shrinkAt = 0; }); }
+  function setMode(v) {
+    S.mode = v; setSeg('mode', v); resetRanges();
+    updateTareBtn(); S.dirty = true;
+  }
+  function updateTareBtn() {
+    const o = S.offset[S.mode];
+    S.tared = o[0] !== 0 || o[1] !== 0 || o[2] !== 0;
+    $('tareBtn').textContent = S.tared ? 'Nullpunkt aus' : 'Nullen';
+    $('tareBtn').setAttribute('aria-pressed', String(S.tared));
+  }
+  document.querySelectorAll('.seg').forEach((seg) => {
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      const key = seg.dataset.key, v = b.dataset.v;
+      if (key === 'mode') {
+        if (v === 'lin' && S.noLin) { showMsg('Dein Gerät liefert keine Werte ohne Schwerkraft.'); return; }
+        setMode(v);
+      } else if (key === 'win') { S.win = +v; setSeg('win', v); S.dirty = true; }
+      else if (key === 'unit') {
+        S.unit = v; setSeg('unit', v); resetRanges();
+        document.querySelectorAll('[data-unit]').forEach((el) => { el.textContent = unitLabel(); });
+        S.dirty = true;
+      }
+    });
+  });
+  $('startBtn').addEventListener('click', () => { if (S.running) stop(); else start(); });
+  $('demoBtn').addEventListener('click', startDemo);
+  $('pauseBtn').addEventListener('click', () => {
+    S.paused = !S.paused;
+    $('pauseBtn').textContent = S.paused ? 'Weiter' : 'Pause';
+    $('pauseBtn').setAttribute('aria-pressed', String(S.paused));
+    setStatus(); S.dirty = true;
+  });
+  $('tareBtn').addEventListener('click', () => {
+    if (S.tared) { S.offset[S.mode] = [0, 0, 0]; }
+    else {
+      const n = buf.n; if (!n) return;
+      const tEnd = buf.t[phys(n - 1)];
+      const i0 = lowerBound(tEnd - 500);
+      const lin = S.mode === 'lin';
+      const A = lin ? [buf.lx, buf.ly, buf.lz] : [buf.gx, buf.gy, buf.gz];
+      const sum = [0, 0, 0]; let c = 0;
+      for (let i = i0; i < n; i++) {
+        const p = phys(i);
+        if (!Number.isFinite(A[0][p])) continue;
+        sum[0] += A[0][p]; sum[1] += A[1][p]; sum[2] += A[2][p]; c++;
+      }
+      if (!c) return;
+      S.offset[S.mode] = sum.map((s) => s / c);
+    }
+    resetRanges(); updateTareBtn(); S.dirty = true;
+  });
+
+  // ---------- Aufnahme / CSV ----------
+  $('recBtn').addEventListener('click', () => {
+    if (S.rec) finishRecording();
+    else {
+      S.rec = { t0: performance.now(), started: new Date(), rows: [] };
+      $('recBtn').setAttribute('aria-pressed', 'true');
+      setStatus(); S.textDirty = true;
+    }
+  });
+  function finishRecording() {
+    const rec = S.rec; S.rec = null;
+    $('recBtn').textContent = 'Aufnahme'; $('recBtn').setAttribute('aria-pressed', 'false');
+    setStatus();
+    if (!rec || !rec.rows.length) return;
+    const f = (v, d) => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '');
+    const lines = ['zeit_s;x_ohne_schwerkraft;y_ohne_schwerkraft;z_ohne_schwerkraft;x_mit_schwerkraft;y_mit_schwerkraft;z_mit_schwerkraft'];
+    for (const r of rec.rows) lines.push([f(r[0] / 1000, 4), f(r[1], 4), f(r[2], 4), f(r[3], 4), f(r[4], 4), f(r[5], 4), f(r[6], 4)].join(';'));
+    const d = rec.started, p2 = (x) => String(x).padStart(2, '0');
+    const name = `beschleunigung_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}-${p2(d.getSeconds())}.csv`;
+    const file = new File(['﻿' + lines.join('\r\n') + '\r\n'], name, { type: 'text/csv' });
+    const download = () => {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a'); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: name }).catch((err) => { if (!err || err.name !== 'AbortError') download(); });
+        return;
+      }
+    } catch (_) { /* weiter mit Download */ }
+    download();
+  }
+
+  // ---------- Start ----------
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.running) keepAwake(); });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+  readColors();
+  buildTable();
+  charts = { xyz: makeChart('cXYZ'), mag: makeChart('cMag'), fft: makeChart('cFFT'), vec: makeChart('cVec') };
+  bindCursor(charts.xyz); bindCursor(charts.mag); bindCursor(charts.fft);
+  if (!window.isSecureContext) {
+    $('introText').textContent = 'Hinweis: Diese Seite ist nicht über https:// geöffnet. Das iPhone gibt den Sensor nur über https:// frei.';
+  }
+  window.__accelDemo = startDemo; // für Tests
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

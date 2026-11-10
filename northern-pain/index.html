@@ -1127,7 +1127,7 @@ void main(){
   }
   const FLASH = [[16, 0.55], [24, 0.3], [32, 0.35], [40, 0.3], [48, 0.45], [64, 1], [80, 1], [88, 0.6], [96, 0.7], [104, 0.3], [112, 1], [116, 0.4], [120, 0.4], [124, 0.6], [128, 1]];
   const WORDS = { 16: 'NORTHERN', 17: 'PAIN', 18: 'ACID', 19: '136 BPM', 20: 'NO VIDEO', 21: 'NO SAMPLES', 22: 'PURE', 23: 'CODE', 28: 'NORTHERN', 29: 'PAIN', 30: 'NORTHERN', 31: 'PAIN' };
-  const SCROLL = 'NORTHERN PAIN PRESENTS A 60 SECOND REALTIME DEMO  ***  NO VIDEO, NO SAMPLES - EVERY PIXEL AND EVERY BEAT IS CALCULATED LIVE IN YOUR BROWSER  ***  GREETINGS TO ALL DEMOSCENERS OUT THERE  ***  RESPECT TO FARBRAUSCH  ***  ';
+  const SCROLL = 'NORTHERN PAIN PRESENTS A 60 SECOND REALTIME DEMO  ***  NO VIDEO, NO SAMPLES - EVERY PIXEL AND EVERY BEAT IS CALCULATED LIVE IN YOUR BROWSER  ***  GREETINGS TO ALL DEMOSCENERS OUT THERE  ***  RESPECT TO ST. PAULI - ALTONA - OTTENSEN - STERNSCHANZE - EIMSBÜTTEL - EPPENDORF - WINTERHUDE - BARMBEK - ST. GEORG - HAFENCITY - WILHELMSBURG - HARBURG - BLANKENESE - BERGEDORF  ***  ';
 
   // ---------------------------------------------------------------- director
   const VFOV = 50 * Math.PI / 180, TANF = Math.tan(VFOV / 2);
@@ -1362,7 +1362,7 @@ void main(){
     }
     // intro typewriter
     if (t > 0.6 && t < 7.3) {
-      const str = 'A REALTIME DEMO IN 60 SECONDS';
+      const str = 'A TRIBUTE TO WODKA ZITRONE';
       const nC = Math.min(str.length, Math.floor((t - 0.6) / (SPB / 4)));
       og.globalAlpha = t > 6.5 ? clamp01((7.3 - t) / 0.8) : 1;
       og.fillStyle = '#fff'; og.textAlign = 'center'; og.textBaseline = 'middle';
@@ -1371,13 +1371,13 @@ void main(){
       og.globalAlpha = 1;
     }
     // sine scroller
-    const s0 = 16 * SPB, s1 = 64 * SPB;
+    const s0 = 16 * SPB, s1 = 96 * SPB;
     if (t > s0 && t < s1) {
       const fs = Math.round(m * 0.05);
       og.font = `900 ${fs}px ${MONO}`;
       og.textAlign = 'left'; og.textBaseline = 'middle'; og.fillStyle = '#fff';
       const cw = og.measureText('M').width;
-      const off = (t - s0) * fs * 6.5;
+      const off = (t - s0) * fs * 7.5;
       const a = clamp01((s1 - t) / 0.6);
       for (let i = 0; i < SCROLL.length; i++) {
         const x = W - off + i * cw;
